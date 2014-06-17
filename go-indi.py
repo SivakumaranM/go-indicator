@@ -7,6 +7,7 @@ import pycurl
 from StringIO import StringIO
 import xml.etree.ElementTree as ET
 import webbrowser
+import os.path
 
 # PING_FREQUENCY = 10
 selectedPipelines = []
@@ -14,7 +15,6 @@ pathToIcon = "/home/kumaran/Indix/go-indicator/go-logo.jpg"
 urlOfXml = "http://sivakumaran-hp:8153/go/cctray.xml"
 # pathToIcon = "/media/yooo/5A3426C44A1D9AD2/Indix/Hackn8/MyGoPanel/go.png"
 # urlOfXml = "http://abyss:8153/go/cctray.xml"
-stageDict = {}
 username = ''
 password = ''
 
@@ -40,7 +40,7 @@ class goIndicator:
         self.ind.set_attention_icon("new-messages-red")      #change the icon
 
 
-    def getXmlResponse(self, username, password):            #username, password
+    def getXmlResponse(self, username, password):
         try:
             responseBuffer = StringIO()
             curl = pycurl.Curl()
@@ -52,9 +52,19 @@ class goIndicator:
         except:
             print "Error in getting the xml response"
 
+    def loginUser(self):          #TODO: read username, password from file
+        return "Success"
+
 
     def main(self):
-        xml = self.getXmlResponse(username, password)
+        if os.path.isfile("test.txt"):
+            if self.loginUser() == "Success":
+                self.getXmlResponse(username, password)
+            else:
+                print "Error: Login failed! Check you credentials"
+        else:
+            self.getUserInfo()
+        xml = self.getXmlResponse('', '')
         [projectDetails, projectNameList] = self.parseXml(xml)
         self.createMenu(projectDetails, projectNameList)
         # gtk.timeout_add(PING_FREQUENCY * 1000, self.go_checker)
@@ -161,6 +171,52 @@ class goIndicator:
     def refresh(self, widget):
         self.main()
 
+    def getUserInfo(self):
+        window = Gtk.Window()
+        window.set_title("Enter login details:")
+        window.set_border_width(120)
+        vbox = Gtk.VBox(True, 2)
+        window.add(vbox)
+        vbox.show()
+        window.show()
+        usernameLabel = Gtk.Label("Username : ")
+        usernameLabel.show()
+        vbox.pack_start(usernameLabel, True, True, 2)
+        usernameBox = Gtk.Entry()
+        usernameBox.set_visibility(True)
+        vbox.pack_start(usernameBox, True, True, 2)
+        usernameBox.show()
+        passwdLabel = Gtk.Label("Password : ")
+        passwdLabel.show()
+        vbox.pack_start(passwdLabel, True, True, 2)
+        passwdBox = Gtk.Entry()
+        passwdBox.set_visibility(False)
+        vbox.pack_start(passwdBox, True, True, 2)
+        passwdBox.show()
+        urlLabel = Gtk.Label("Url : ")
+        urlLabel.show()
+        vbox.pack_start(urlLabel, True, True, 2)
+        urlBox = Gtk.Entry()
+        urlBox.set_visibility(True)
+        vbox.pack_start(urlBox, True, True, 2)
+        urlBox.show()
+        button = Gtk.Button("Ok")
+        button.connect("clicked", self.onButtonClick, window, usernameBox, passwdBox, urlBox)
+        vbox.pack_start(button, True, True, 2)
+        button.show()
+        
+    def onButtonClick(self, widget, window, usernameBox, passwdBox, urlBox):
+        try:
+            file = open("test.txt",'w')
+            file.write(usernameBox.get_text() + '\n' + passwdBox.get_text() + '\n' + urlBox.get_text())
+            file.close()
+            window.close()
+            self.main()
+
+        except:
+            print "Error while writing user login details to file"
+
+
     def preference(self, widget, projectNameList):
         window = Gtk.Window()
         window.set_title("Select Pipelines")
@@ -168,7 +224,7 @@ class goIndicator:
         vbox = Gtk.VBox(True, 2)
         window.add(vbox)
         button = Gtk.Button("Quit")
-        button.connect("clicked", self.delete_event,window)
+        button.connect("clicked", self.delete_event, window)
         vbox.pack_start(button, True, True, 2)
         button.show()
         vbox.show()
@@ -180,6 +236,7 @@ class goIndicator:
                 button.set_active(project)
             button.show()
         window.show()
+
 
     def updateSelectedPipelines(self, button, name):
         if button.get_active() and name not in selectedPipelines:
