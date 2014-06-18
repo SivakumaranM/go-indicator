@@ -1,22 +1,22 @@
 #!/usr/bin/env python
 import sys
 import pygtk
+import time
 from gi.repository import Gtk, GLib, Gio, Gdk 
 from gi.repository import AppIndicator3
+from gi.repository import Notify
 import pycurl
 from StringIO import StringIO
 import xml.etree.ElementTree as ET
 import webbrowser
 import os.path
 
-# PING_FREQUENCY = 10
 selectedPipelines = []
-pathToIcon = "/home/kumaran/Indix/go-indicator/go-logo.jpg"
-urlOfXml = "http://sivakumaran-hp:8153/go/cctray.xml"
 # pathToIcon = "/media/yooo/5A3426C44A1D9AD2/Indix/Hackn8/MyGoPanel/go.png"
 # urlOfXml = "http://abyss:8153/go/cctray.xml"
-username = ''
-password = ''
+pathToIcon = "/home/kumaran/Indix/go-indicator/go-logo.png"
+# urlOfXml = "http://sivakumaran-hp:8153/go/cctray.xml"
+
 
 class Job:
 
@@ -31,6 +31,7 @@ class Job:
         self.activity = activity
         self.url = url
 
+
 class goIndicator:
 
     def __init__(self):
@@ -38,40 +39,74 @@ class goIndicator:
         self.ind.set_status(AppIndicator3.IndicatorStatus.ACTIVE)
         self.ind.set_icon(pathToIcon)
         self.ind.set_attention_icon("new-messages-red")      #change the icon
+        self.notifyFlag = False
+        if os.path.isfile("selectedPipelines.txt"):
+            self.getSelectedPipelinesFromFile()
 
 
-    def getXmlResponse(self, username, password):
+    def getXmlResponse(self, username, password, urlOfXml):
         try:
             responseBuffer = StringIO()
             curl = pycurl.Curl()
             curl.setopt(curl.URL, urlOfXml)
             curl.setopt(curl.WRITEFUNCTION, responseBuffer.write)
+            curl.setopt(curl.USERPWD, username + ":" + password)
             curl.perform()
             curl.close()
             return responseBuffer.getvalue()
         except:
             print "Error in getting the xml response"
 
-    def loginUser(self):          #TODO: read username, password from file
-        return "Success"
+
+    def getSelectedPipelinesFromFile(self):
+       try:
+           with open("selectedPipelines.txt") as f:
+               content = f.readlines()
+           content = [x.strip('\n') for x in content]
+           for pipeline in content:
+            selectedPipelines.append(pipeline)
+       except:
+           print "Error while reading selectedPipelines from file"
+
+
+    def loginUser(self):
+       try:
+           with open("test.txt") as f:
+               content = f.readlines()
+           content = [x.strip('\n') for x in content]
+           return [content[0], content[1], content[2]]
+       except:
+           print "Error while reading user login details from file"
+           return "Failure"
 
 
     def main(self):
-        if os.path.isfile("test.txt"):
-            if self.loginUser() == "Success":
-                self.getXmlResponse(username, password)
-            else:
-                print "Error: Login failed! Check you credentials"
+        if os.path.isfile("test.txt"):   
+            dropdownMenu = self.goDriver()
+            GLib.timeout_add_seconds(120, self.menuDestroyer, dropdownMenu)
+            Gtk.main()
         else:
             self.getUserInfo()
-        xml = self.getXmlResponse('', '')
-        [projectDetails, projectNameList] = self.parseXml(xml)
-        self.createMenu(projectDetails, projectNameList)
-        # gtk.timeout_add(PING_FREQUENCY * 1000, self.go_checker)
-        Gtk.main()
-        #default refresh
-        GLib.timeout_add_seconds(10, True)
+            Gtk.main()
 
+
+    def notifyUser(self):
+        Notify.init("image")
+        notification = Notify.Notification.new("Fix your pipeline", "A pipeline has failed! Fix it!", pathToIcon)
+        notification.show()
+
+
+    def goDriver(self):
+        [username, password, urlOfXml] = self.loginUser()
+        xml = self.getXmlResponse(username, password, urlOfXml)
+        [projectDetails, projectNameList] = self.parseXml(xml)
+        self.notifyFlag = False
+        dropdownMenu = Gtk.Menu()
+        dropdownMenu = self.createMenu(projectDetails, projectNameList)
+        if self.notifyFlag:
+            self.notifyUser()    
+        return dropdownMenu      
+            
 
     def parseXml(self, xml):
         projectDetails = {}
@@ -102,37 +137,54 @@ class goIndicator:
             print "Error while parsing the xml"
                 
         
-    def getStatusImage(self, project):
+    def getStatusImageForProject(self, project):
         for stage in project.keys():
             for job in project[stage]:
-                print job.lastBuildStatus , job.activity
                 if 'Building' in job.lastBuildStatus:
-                    return Gtk.Image.new_from_icon_name("gtk-dialog-question", Gtk.IconSize.MENU)
+                    return [1, Gtk.Image.new_from_icon_name("gtk-dialog-question", Gtk.IconSize.MENU)]
                 elif 'Failure' in job.activity:
-                    return Gtk.Image.new_from_icon_name("gtk-stop", Gtk.IconSize.MENU)
-        return Gtk.Image.new_from_icon_name("gtk-ok", Gtk.IconSize.MENU)
+                    return [-1, Gtk.Image.new_from_icon_name("gtk-stop", Gtk.IconSize.MENU)]
+        return [1, Gtk.Image.new_from_icon_name("gtk-ok", Gtk.IconSize.MENU)]
+
+
+    def getStatusImageForJob(self, job):
+        if job.lastBuildStatus == "Building":
+            return [-1, Gtk.Image.new_from_icon_name("gtk-dialog-question", Gtk.IconSize.MENU)]
+        elif job.activity == "Failure":
+            return [0, Gtk.Image.new_from_icon_name("gtk-stop", Gtk.IconSize.MENU)]
+        else:
+            return [1, Gtk.Image.new_from_icon_name("gtk-ok", Gtk.IconSize.MENU)]
 
     
     def createMenu(self, projectDetails, projectNameList):
         self.pipelineMenu = Gtk.Menu()
-        print "details ", projectNameList, selectedPipelines
         try:
             for project in selectedPipelines:
                 self.pipelineItem = Gtk.ImageMenuItem.new_with_label(project)
                 self.pipelineItem.set_always_show_image(True)
                 self.stageMenu = Gtk.Menu()
                 stagesInProject = projectDetails[project].keys()
-                img = self.getStatusImage(projectDetails[project])
+                [flagForNotify, img] = self.getStatusImageForProject(projectDetails[project])
                 for stage in stagesInProject:
-                    self.stageItem = Gtk.MenuItem(stage)
+                    self.stageItem = Gtk.ImageMenuItem.new_with_label(stage)
+                    self.stageItem.set_always_show_image(True)
                     self.jobMenu = Gtk.Menu()
+                    stageImg = Gtk.Image.new_from_icon_name("gtk-ok", Gtk.IconSize.MENU)
                     for job in projectDetails[project][stage]:
-                        self.jobItem = Gtk.MenuItem(job.name)
-                        self.jobItem.connect("activate", self.openUrl, job.url)       
+                        [flag,jobImg] = self.getStatusImageForJob(job)
+                        if flag == -1:
+                            stageImg = Gtk.Image.new_from_icon_name("gtk-dialog-question", Gtk.IconSize.MENU)
+                        elif flag == 0:
+                            stageImg = Gtk.Image.new_from_icon_name("gtk-stop", Gtk.IconSize.MENU)
+                        self.jobItem = Gtk.ImageMenuItem.new_with_label(job.name)
+                        self.jobItem.set_always_show_image(True)
+                        self.jobItem.connect("activate", self.openUrl, job.url)
+                        self.jobItem.set_image(jobImg)
                         self.jobItem.show()
                         self.jobMenu.append(self.jobItem)             
                     self.jobMenu.show()
                     self.stageItem.set_submenu(self.jobMenu)
+                    self.stageItem.set_image(stageImg)
                     self.stageItem.show()
                     self.stageMenu.append(self.stageItem)
                 self.stageMenu.show() 
@@ -140,36 +192,58 @@ class goIndicator:
                 self.pipelineItem.set_image(img)
                 self.pipelineItem.show()
                 self.pipelineMenu.append(self.pipelineItem)
+                if flagForNotify == -1:
+                    self.notifyFlag = True
         except:
             print "Error while creating menu"
+
         self.pipelineMenu.show()
        
-        self.preferenceItem = Gtk.MenuItem("Preference")
+        self.preferenceItem = Gtk.ImageMenuItem.new_with_label("Preference")
+        self.preferenceItem.set_always_show_image(True)
+        img = Gtk.Image.new_from_icon_name("system-run", Gtk.IconSize.MENU)
         self.preferenceItem.connect("activate", self.preference, projectNameList)
+        self.preferenceItem.set_image(img)
         self.preferenceItem.show()
         self.pipelineMenu.append(self.preferenceItem)
 
-        self.refreshItem = Gtk.MenuItem("Refresh")
-        self.refreshItem.connect("activate", self.refresh)
+        self.refreshItem = Gtk.ImageMenuItem.new_with_label("Refresh")
+        self.refreshItem.set_always_show_image(True)
+        img = Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.MENU)
+        self.refreshItem.set_image(img)
+        self.refreshItem.connect("activate", self.refresh, self.pipelineMenu)
         self.refreshItem.show()
         self.pipelineMenu.append(self.refreshItem)
-
-        self.quit_item = Gtk.MenuItem("Quit")
-        self.quit_item.connect("activate", self.quit)
+        
+        self.quit_item = Gtk.ImageMenuItem.new_with_label("Quit")
+        self.quit_item.set_always_show_image(True)
+        img = Gtk.Image.new_from_icon_name("system-shutdown", Gtk.IconSize.MENU)
+        self.quit_item.set_image(img)
+        self.quit_item.connect("activate", self.quit, self.pipelineMenu)
         self.quit_item.show()
         self.pipelineMenu.append(self.quit_item)
         
         self.ind.set_menu(self.pipelineMenu)
+        return self.pipelineMenu
 
-    def quit(self, widget):
+
+    def quit(self, widget, pipelineMenu):
         sys.exit(0)
+
 
     def openUrl(self, widget, url):
         new = 2 # open in a new tab, if possible
         webbrowser.open(url, new = new)
 
-    def refresh(self, widget):
+
+    def menuDestroyer(self, menu):
+        menu.destroy()
         self.main()
+
+
+    def refresh(self, widget, pipelineMenu):
+        self.menuDestroyer(pipelineMenu)
+
 
     def getUserInfo(self):
         window = Gtk.Window()
@@ -205,6 +279,7 @@ class goIndicator:
         vbox.pack_start(button, True, True, 2)
         button.show()
         
+
     def onButtonClick(self, widget, window, usernameBox, passwdBox, urlBox):
         try:
             file = open("test.txt",'w')
@@ -212,30 +287,49 @@ class goIndicator:
             file.close()
             window.close()
             self.main()
-
         except:
             print "Error while writing user login details to file"
+
+
+    def writeSelectedPipelines(self):
+        try:
+            file = open("selectedPipelines.txt",'w+')
+            for pipeline in selectedPipelines:
+                file.write(pipeline + '\n')
+            file.close()
+        except:
+            print "Error while writing selectedPipelines to file"
 
 
     def preference(self, widget, projectNameList):
         window = Gtk.Window()
         window.set_title("Select Pipelines")
-        window.set_border_width(80)
-        vbox = Gtk.VBox(True, 2)
+        window.set_border_width(1)
+        window.set_default_size(300,3000)
+        vbox = Gtk.ScrolledWindow()
+        vbox.set_border_width(10)
+        vbox.set_policy(Gtk.PolicyType.ALWAYS, Gtk.PolicyType.ALWAYS)
         window.add(vbox)
-        button = Gtk.Button("Quit")
+        layout = Gtk.Layout()
+        layout.set_size(150, 5500)
+        layout.set_vexpand(True)
+        layout.set_hexpand(True)
+        vbox.add(layout)
+        button = Gtk.Button("Confirm Selection")
         button.connect("clicked", self.delete_event, window)
-        vbox.pack_start(button, True, True, 2)
+        layout.put(button,65,15)
         button.show()
-        vbox.show()
+        offset = 70
         for project in projectNameList:
             button = Gtk.CheckButton(project)
             button.connect("toggled", self.updateSelectedPipelines, project)
-            vbox.pack_start(button, True, True, 2)
+            layout.put(button,10,offset)
+            offset = offset + 25
             if project in selectedPipelines:
                 button.set_active(project)
             button.show()
-        window.show()
+        window.show_all()
+        vbox.show()        
 
 
     def updateSelectedPipelines(self, button, name):
@@ -246,11 +340,12 @@ class goIndicator:
             state = "off"
             selectedPipelines.remove(name)
 
-        print "selected Pipelines", selectedPipelines
 
     def delete_event(self, button, window):
+        self.writeSelectedPipelines()
         window.close()
         self.main()
+
 
 if __name__ == "__main__":
     indicator = goIndicator()
