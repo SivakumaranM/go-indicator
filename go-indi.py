@@ -50,7 +50,6 @@ class goIndicator:
 
 
     def goDriver(self):
-        print "entering goDriver"
         [username, password, urlOfXml] = self.loginUser()
         xml = self.getXmlResponse(username, password, urlOfXml)
         [projectDetails, projectNameList] = self.parseXml(xml)
@@ -340,7 +339,7 @@ class goIndicator:
 
     def confirmEvent(self, button, window):
         self.writeSelectedPipelines()
-        window.close()
+        window.destroy()
         self.goDriver()
 
 
