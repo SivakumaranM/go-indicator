@@ -284,7 +284,7 @@ class goIndicator:
             self.main()
         except:
             print "Error while writing user login details to file"
-            self.exit(0)
+            sys.exit(0)
 
 
     def writeSelectedPipelines(self):
