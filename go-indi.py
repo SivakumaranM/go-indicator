@@ -42,7 +42,7 @@ class goIndicator:
     def main(self):
         if os.path.isfile("gocred.txt"):   
             self.goDriver()
-            GLib.timeout_add_seconds(20, self.goDriver)
+            GLib.timeout_add_seconds(120, self.goDriver)
             Gtk.main()
         else:
             self.getUserInfo()
