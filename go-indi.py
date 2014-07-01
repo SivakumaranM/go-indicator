@@ -42,7 +42,7 @@ class goIndicator:
     def main(self):
         if os.path.isfile("gocred.txt"):   
             self.goDriver()
-            GLib.timeout_add_seconds(120, self.goDriver)
+            GLib.timeout_add_seconds(20, self.goDriver)
             Gtk.main()
         else:
             self.getUserInfo()
@@ -50,6 +50,7 @@ class goIndicator:
 
 
     def goDriver(self):
+        print "entering goDriver"
         [username, password, urlOfXml] = self.loginUser()
         xml = self.getXmlResponse(username, password, urlOfXml)
         [projectDetails, projectNameList] = self.parseXml(xml)
@@ -206,13 +207,13 @@ class goIndicator:
         self.preferenceItem.show()
         self.pipelineMenu.append(self.preferenceItem)
 
-        # self.refreshItem = Gtk.ImageMenuItem.new_with_label("Refresh")
-        # self.refreshItem.set_always_show_image(True)
-        # img = Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.MENU)
-        # self.refreshItem.set_image(img)
-        # self.refreshItem.connect("activate", self.refresh, self.pipelineMenu)
-        # self.refreshItem.show()
-        # self.pipelineMenu.append(self.refreshItem)
+        self.refreshItem = Gtk.ImageMenuItem.new_with_label("Refresh")
+        self.refreshItem.set_always_show_image(True)
+        img = Gtk.Image.new_from_icon_name("view-refresh", Gtk.IconSize.MENU)
+        self.refreshItem.set_image(img)
+        self.refreshItem.connect("activate", self.refresh)
+        self.refreshItem.show()
+        self.pipelineMenu.append(self.refreshItem)
         
         self.quit_item = Gtk.ImageMenuItem.new_with_label("Quit")
         self.quit_item.set_always_show_image(True)
@@ -227,6 +228,10 @@ class goIndicator:
 
     def quit(self, widget, pipelineMenu):
         sys.exit(0)
+
+
+    def refresh(self, widget):
+        self.goDriver()
 
 
     def openUrl(self, widget, url, username, password):
@@ -275,8 +280,11 @@ class goIndicator:
             file.write(usernameBox.get_text() + '\n' + passwdBox.get_text() + '\n' + urlBox.get_text())
             file.close()
             window.close()
+            Gtk.main_quit()
+            self.main()
         except:
             print "Error while writing user login details to file"
+            self.exit(0)
 
 
     def writeSelectedPipelines(self):
@@ -333,8 +341,7 @@ class goIndicator:
     def confirmEvent(self, button, window):
         self.writeSelectedPipelines()
         window.close()
-        #Gtk.main_quit()
-        #self.main()
+        self.goDriver()
 
 
 if __name__ == "__main__":
