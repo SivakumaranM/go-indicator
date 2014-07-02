@@ -40,9 +40,9 @@ class goIndicator:
 
 
     def main(self):
-        if os.path.isfile("gocred.txt"):   
+        if os.path.isfile(".gocred.txt"):   
             self.goDriver()
-            GLib.timeout_add_seconds(120, self.goDriver)
+            GLib.timeout_add_seconds(180, self.goDriver)
             Gtk.main()
         else:
             self.getUserInfo()
@@ -86,7 +86,7 @@ class goIndicator:
 
     def loginUser(self):
        try:
-           with open("gocred.txt") as f:
+           with open(".gocred.txt") as f:
                content = f.readlines()
            content = [x.strip('\n') for x in content]
            return [content[0], content[1], content[2]]
@@ -260,23 +260,23 @@ class goIndicator:
         passwdBox.set_visibility(False)
         vbox.pack_start(passwdBox, True, True, 2)
         passwdBox.show()
-        urlLabel = Gtk.Label("Url : ")
-        urlLabel.show()
-        vbox.pack_start(urlLabel, True, True, 2)
-        urlBox = Gtk.Entry()
-        urlBox.set_visibility(True)
-        vbox.pack_start(urlBox, True, True, 2)
-        urlBox.show()
+        # urlLabel = Gtk.Label("Url : ")
+        # urlLabel.show()
+        # vbox.pack_start(urlLabel, True, True, 2)
+        # urlBox = Gtk.Entry()
+        # urlBox.set_visibility(True)
+        # vbox.pack_start(urlBox, True, True, 2)
+        # urlBox.show()
         button = Gtk.Button("Ok")
-        button.connect("clicked", self.onButtonClick, window, usernameBox, passwdBox, urlBox)
+        button.connect("clicked", self.onButtonClick, window, usernameBox, passwdBox, "ci-server.indix.tv:8080/go/cctray.xml")
         vbox.pack_start(button, True, True, 2)
         button.show()
         
 
-    def onButtonClick(self, widget, window, usernameBox, passwdBox, urlBox):
+    def onButtonClick(self, widget, window, usernameBox, passwdBox, url):
         try:
-            file = open("gocred.txt",'w')
-            file.write(usernameBox.get_text() + '\n' + passwdBox.get_text() + '\n' + urlBox.get_text())
+            file = open(".gocred.txt",'w')
+            file.write(usernameBox.get_text() + '\n' + passwdBox.get_text() + '\n' + url)
             file.close()
             window.close()
             Gtk.main_quit()
