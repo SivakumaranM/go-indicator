@@ -164,7 +164,7 @@ class goIndicator:
                 [flagForNotify, img] = self.getStatusImageForProject(projectDetails[project])
                 if flagForNotify == 0:
 					brokenPipelines.append(project)
-
+                
                 for stage in stagesInProject:
                     self.stageItem = Gtk.ImageMenuItem.new_with_label(stage)
                     self.stageItem.set_always_show_image(True)
@@ -260,23 +260,23 @@ class goIndicator:
         passwdBox.set_visibility(False)
         vbox.pack_start(passwdBox, True, True, 2)
         passwdBox.show()
-        # urlLabel = Gtk.Label("Url : ")
-        # urlLabel.show()
-        # vbox.pack_start(urlLabel, True, True, 2)
-        # urlBox = Gtk.Entry()
-        # urlBox.set_visibility(True)
-        # vbox.pack_start(urlBox, True, True, 2)
-        # urlBox.show()
+        urlLabel = Gtk.Label("Hostname with port : ")
+        urlLabel.show()
+        vbox.pack_start(urlLabel, True, True, 2)
+        urlBox = Gtk.Entry()
+        urlBox.set_visibility(True)
+        vbox.pack_start(urlBox, True, True, 2)
+        urlBox.show()
         button = Gtk.Button("Ok")
-        button.connect("clicked", self.onButtonClick, window, usernameBox, passwdBox, "ci-server.indix.tv:8080/go/cctray.xml")
+        button.connect("clicked", self.onButtonClick, window, usernameBox, passwdBox, urlBox)
         vbox.pack_start(button, True, True, 2)
         button.show()
         
 
-    def onButtonClick(self, widget, window, usernameBox, passwdBox, url):
+    def onButtonClick(self, widget, window, usernameBox, passwdBox, urlBox):
         try:
             file = open(".gocred.txt",'w')
-            file.write(usernameBox.get_text() + '\n' + passwdBox.get_text() + '\n' + url)
+            file.write(usernameBox.get_text() + '\n' + passwdBox.get_text() + '\n' + urlBox.get_text() + "/go/cctray.xml")
             file.close()
             window.close()
             Gtk.main_quit()
